@@ -37,7 +37,7 @@ public class Main {
                     JSONObject msg = recvQueue.get(0);
                     recvQueue.remove(0);
                     recvQueueSem.release();
-                    game.process(msg);
+                    game.update(msg);
                 } else {
                     recvQueueSem.release();
                 }

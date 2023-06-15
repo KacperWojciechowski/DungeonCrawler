@@ -5,7 +5,7 @@ import org.json.JSONObject;
 public enum Action {
     undefined(0), start(1), goNorth(2), goWest(3), goEast(4), goSouth(5), attack(6),
     useSkill(7), checkStats(8), drinkHpPotion(9), drinkManaPotion(10), flee(11), enterRoom(12),
-    findEnemy(13), debug(14), fight(15), disconnect(16);
+    findEnemy(13), debug(14), fight(15), disconnect(16), findChest(17);
 
     private final int ID;
     Action(int ID)
@@ -38,6 +38,7 @@ public enum Action {
             case 14 -> action = debug;
             case 15 -> action = fight;
             case 16 -> action = disconnect;
+            case 17 -> action = findChest;
             default -> action = undefined;
         }
         return action;

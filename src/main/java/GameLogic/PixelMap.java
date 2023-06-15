@@ -8,10 +8,9 @@ public class PixelMap {
     private final int[][] map = new int[rows][columns];
 
     public static final int ROOM = 0;
-    public static final int WALL = 1;
     private void randomizeMap()
     {
-        Random generate = new Random(1234);
+        Random generate = new Random();
 
         for (int x = 0; x < map.length; x++)
         {

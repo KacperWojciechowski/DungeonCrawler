@@ -1,10 +1,8 @@
 package Server;
 
-import CommsFramework.Action;
-import CommsFramework.Key;
-import CommsFramework.SenderCallback;
-import CommsFramework.Status;
+import CommsFramework.*;
 import GameLogic.MapGraph;
+import GameLogic.Player;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -19,10 +17,12 @@ public class Game {
     boolean initSucceeded = false;
     private final Semaphore exitSem;
     private MapGraph map;
-    private int playerLocation;
     private int north = -1;
     private int south = -1;
-    private List<Integer> visitedLocations = new ArrayList<>();
+    private final List<Integer> visitedLocations = new ArrayList<>();
+    private Player player;
+    private JSONObject lastRespose;
+
     public Game(SenderCallback senderCallback, Semaphore exitSem)
     {
         this.senderCallback = senderCallback;
@@ -33,7 +33,9 @@ public class Game {
     {
         map = new MapGraph();
         Random generate = new Random(1234);
-        playerLocation = generate.nextInt(map.getRoomsCount());
+        player = new Player();
+        player.setLocation(generate.nextInt(map.getRoomsCount()));
+        visitedLocations.add(player.getLocation());
 
         initSucceeded = true;
         // create map
@@ -46,19 +48,19 @@ public class Game {
             JSONObject response = new JSONObject();
             response.put(Key.action.name(), Action.undefined.getID());
             senderCallback.send(response);
+            lastRespose = response;
             processRequest(lastValidRequest);
         } else {
             System.out.println("[Querry] Last valid querry not available");
             JSONObject response = new JSONObject();
             response.put(Key.action.name(), Action.undefined.getID());
             senderCallback.send(response);
-            processStart();
+            lastRespose = response;
+            JSONObject dummyStartMsg = new JSONObject();
+            dummyStartMsg.put(Key.action.name(), Action.start);
+            dummyStartMsg.put(Key.status.name(), initSucceeded ? Status.Ok : Status.Error);
+            processStart(dummyStartMsg);
         }
-    }
-
-    private boolean exitMessageArrived(JSONObject msg)
-    {
-        return msg.isEmpty();
     }
     public void update(JSONObject msg)
     {
@@ -75,7 +77,7 @@ public class Game {
         }
     }
 
-    private void processStart()
+    private void processStart(JSONObject msg)
     {
         System.out.println("[Querry] Processing start");
         JSONObject startMsg = new JSONObject();
@@ -87,23 +89,28 @@ public class Game {
             exitSem.release();
         }
         senderCallback.send(startMsg);
+        lastRespose = startMsg;
+        lastValidRequest = msg;
         enterRoom();
     }
 
     private void enterRoom()
     {
-        JSONObject enterStartRoomMsg = new JSONObject();
-        enterStartRoomMsg.put(Key.action.name(), Action.enterRoom.getID());
+        JSONObject enterRoomMsg = new JSONObject();
+        enterRoomMsg.put(Key.action.name(), Action.enterRoom.getID());
 
-        checkAvailableNeighbouringRooms(enterStartRoomMsg);
+        checkAvailableNeighbouringRooms(enterRoomMsg);
 
         // TODO: implement potions
-        enterStartRoomMsg.put(Key.hpPotionAvailable.name(), false);
-        enterStartRoomMsg.put(Key.manaPotionAvailable.name(), false);
-        senderCallback.send(enterStartRoomMsg);
+        enterRoomMsg.put(Key.hpPotionAvailable.name(), false);
+        enterRoomMsg.put(Key.manaPotionAvailable.name(), false);
+        enterRoomMsg.put(Key.visited.name(), visitedLocations.contains(player.getLocation()));
+        senderCallback.send(enterRoomMsg);
+        lastRespose = enterRoomMsg;
+        visitedLocations.add(player.getLocation());
     }
     private void checkAvailableNeighbouringRooms(JSONObject msg) {
-        List<Integer> neighbouringRooms = map.getNeighboursOf(playerLocation);
+        List<Integer> neighbouringRooms = map.getNeighboursOf(player.getLocation());
         boolean northIsPresent = false;
         boolean westIsPresent = false;
         boolean eastIsPresent = false;
@@ -111,10 +118,10 @@ public class Game {
 
         for (Integer neighbour : neighbouringRooms)
         {
-            if (neighbour == playerLocation - 1) westIsPresent = true;
-            if (neighbour == playerLocation + 1) eastIsPresent = true;
-            if (neighbour < playerLocation - 1) {northIsPresent = true; north = neighbour;}
-            if (neighbour > playerLocation + 1) {southIsPresent = true; south = neighbour;}
+            if (neighbour == player.getLocation() - 1) westIsPresent = true;
+            if (neighbour == player.getLocation() + 1) eastIsPresent = true;
+            if (neighbour < player.getLocation() - 1) {northIsPresent = true; north = neighbour;}
+            if (neighbour > player.getLocation() + 1) {southIsPresent = true; south = neighbour;}
         }
 
         msg.put(Key.pathNorth.name(), northIsPresent);
@@ -130,6 +137,7 @@ public class Game {
         msg.put(Key.action.name(), Action.disconnect.getID());
         msg.put(Key.status.name(), Status.Ok.getID());
         senderCallback.send(msg);
+        lastRespose = msg;
         exitSem.release(3);
     }
     private void processRequest(JSONObject msg)
@@ -137,7 +145,7 @@ public class Game {
         System.out.println("[Querry] Processing request");
 
         if (Action.start == Action.getFromJSON(msg)) {
-            processStart();
+            processStart(msg);
         } else if (Action.disconnect == Action.getFromJSON(msg)) {
             processDisconnect();
         } else if (Action.goNorth == Action.getFromJSON(msg)) {
@@ -148,42 +156,105 @@ public class Game {
             processGoEast();
         } else if (Action.goSouth == Action.getFromJSON(msg)) {
             processGoSouth();
+        } else if (Action.checkStats == Action.getFromJSON(msg)) {
+            processCheckStats();
         }
     }
 
+    private void processCheckStats() {
+        System.out.println("[Querry] Processing check stats");
+        JSONObject msg = new JSONObject();
+        msg.put(Key.action.name(), Action.checkStats.getID());
+        msg.put(Key.playerMana.name(), player.getMana());
+        msg.put(Key.playerHp.name(), player.getHp());
+        msg.put(Key.playerVitality.name(), player.getVitality());
+        msg.put(Key.playerDamage.name(), player.getDamage());
+        msg.put(Key.playerIntelligence.name(), player.getIntelligence());
+        msg.put(Key.playerSkillCost.name(), player.getSkillCost());
+        msg.put(Key.playerSkillDamage.name(), player.getSkillDamage());
+        msg.put(Key.playerManaPotionsCount.name(), player.getManaPotionsCount());
+        msg.put(Key.playerHpPotionsCount.name(), player.getHpPotionsCount());
+        msg.put(Key.playerManaLimit.name(), player.getMana_limit());
+        msg.put(Key.playerHpLimit.name(), player.getHp_limit());
+        senderCallback.send(msg);
+        // allow player to select another choice from the previous action
+        senderCallback.send(lastRespose);
+    }
+
     private void processGoSouth() {
-        playerLocation = south;
+        System.out.println("[Querry] Processing go South");
+        player.setLocation(south);
         resetSavedNeighbours();
 
-        // TODO: Randomize enemy
-        // TODO: Randomize chest
+        if (!visitedLocations.contains(player.getLocation()))
+        {
+            // TODO: Randomize enemy
+            randomizeLoot();
+        }
         enterRoom();
     }
 
     private void processGoEast() {
-        playerLocation = playerLocation+1;
+        System.out.println("[Querry] Processing go East");
+        player.setLocation(player.getLocation() + 1);
         resetSavedNeighbours();
 
-        // TODO: Randomize enemy
-        // TODO: Randomize chest
+        if (!visitedLocations.contains(player.getLocation()))
+        {
+            // TODO: Randomize enemy
+            randomizeLoot();
+        }
         enterRoom();
     }
 
+    private void randomizeLoot() {
+        Random generate = new Random();
+        // generate chest with 33% probability
+        if (generate.nextInt(3) == 0) {
+            Loot loot = Loot.getByID(generate.nextInt(5) + 1);
+            upgradePlayerAccordingToLoot(loot);
+
+            JSONObject msg = new JSONObject();
+            msg.put(Key.action.name(), Action.findChest.getID());
+            msg.put(Key.loot.name(), loot.getID());
+            senderCallback.send(msg);
+        }
+    }
+
+    private void upgradePlayerAccordingToLoot(Loot loot) {
+        switch(loot)
+        {
+            case damageBoost -> player.upgradeDamage();
+            case vitalityBoost -> player.upgradeVitality();
+            case intelligenceBoost -> player.upgradeIntelligence();
+            case hpPotion -> player.findHpPotion();
+            case manaPotion -> player.findManaPotion();
+        }
+    }
+
     private void processGoWest() {
-        playerLocation = playerLocation-1;
+        System.out.println("[Querry] Processing go West");
+        player.setLocation(player.getLocation() - 1);
         resetSavedNeighbours();
 
-        // TODO: Randomize enemy
-        // TODO: Randomize chest
+        if (!visitedLocations.contains(player.getLocation()))
+        {
+            // TODO: Randomize enemy
+            randomizeLoot();
+        }
         enterRoom();
     }
 
     private void processGoNorth() {
-        playerLocation = north;
+        System.out.println("[Querry] Processing go North");
+        player.setLocation(north);
         resetSavedNeighbours();
 
-        // TODO: Randomize enemy
-        // TODO: Randomize chest
+        if (!visitedLocations.contains(player.getLocation()))
+        {
+            // TODO: Randomize enemy
+            randomizeLoot();
+        }
         enterRoom();
     }
 
