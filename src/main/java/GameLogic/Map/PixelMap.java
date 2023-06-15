@@ -1,4 +1,4 @@
-package GameLogic;
+package GameLogic.Map;
 
 import java.util.Random;
 

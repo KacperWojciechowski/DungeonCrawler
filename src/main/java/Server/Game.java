@@ -1,7 +1,12 @@
 package Server;
 
-import CommsFramework.*;
-import GameLogic.MapGraph;
+import CommsFramework.Enums.Action;
+import CommsFramework.Enums.Key;
+import CommsFramework.Enums.Loot;
+import CommsFramework.Enums.Status;
+import CommsFramework.Interfaces.SenderCallback;
+import GameLogic.Enemies.*;
+import GameLogic.Map.MapGraph;
 import GameLogic.Player;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -22,6 +27,8 @@ public class Game {
     private final List<Integer> visitedLocations = new ArrayList<>();
     private Player player;
     private JSONObject lastRespose;
+    private final List<EnemyInLocation> enemiesInLocations = new ArrayList<>();
+    private Enemy enemy;
 
     public Game(SenderCallback senderCallback, Semaphore exitSem)
     {
@@ -38,7 +45,6 @@ public class Game {
         visitedLocations.add(player.getLocation());
 
         initSucceeded = true;
-        // create map
     }
 
     private void tryToRecoverFromWrongQuery() {
@@ -158,7 +164,16 @@ public class Game {
             processGoSouth();
         } else if (Action.checkStats == Action.getFromJSON(msg)) {
             processCheckStats();
+        } else if (Action.flee == Action.getFromJSON(msg)) {
+            processFlee();
         }
+    }
+
+    private void processFlee() {
+        enemy = null;
+        player.setLocation(player.getPreviousLocation());
+        resetSavedNeighbours();
+        enterRoom();
     }
 
     private void processCheckStats() {
@@ -188,10 +203,60 @@ public class Game {
 
         if (!visitedLocations.contains(player.getLocation()))
         {
-            // TODO: Randomize enemy
+            if (randomizeEnemy()) return;
             randomizeLoot();
         }
         enterRoom();
+    }
+
+    private boolean randomizeEnemy() {
+        Enemy localEnemy = getEnemyFoundInThisLocation();
+        if (localEnemy != null)
+        {
+            this.enemy = localEnemy;
+            processFoundEnemy(localEnemy);
+            return true;
+        }
+        else
+        {
+            Random generate = new Random();
+            // randomize whether an enemy is present
+            if (generate.nextInt(3) == 0)
+            {
+                int enemyChoice = generate.nextInt(3);
+                switch(enemyChoice)
+                {
+                    case 0 -> localEnemy = new Rat();
+                    case 1 -> localEnemy = new Kobold();
+                    case 2 -> localEnemy = new TunelTroll();
+                }
+                enemiesInLocations.add(new EnemyInLocation(localEnemy, player.getLocation()));
+                this.enemy = localEnemy;
+                processFoundEnemy(localEnemy);
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    private void processFoundEnemy(Enemy localEnemy) {
+        JSONObject msg = new JSONObject();
+        msg.put(Key.action.name(), Action.findEnemy.getID());
+        msg.put(Key.enemyName.name(), localEnemy.getName());
+        msg.put(Key.enemyAlive.name(), true);
+        senderCallback.send(msg);
+    }
+
+    private Enemy getEnemyFoundInThisLocation() {
+        Enemy ret = null;
+        for (EnemyInLocation eil : enemiesInLocations) {
+            if (eil.getRoom() == player.getLocation()) {
+                ret = eil.getEnemy();
+                break;
+            }
+        }
+        return ret;
     }
 
     private void processGoEast() {
@@ -201,7 +266,7 @@ public class Game {
 
         if (!visitedLocations.contains(player.getLocation()))
         {
-            // TODO: Randomize enemy
+            if (randomizeEnemy()) return;
             randomizeLoot();
         }
         enterRoom();
@@ -210,7 +275,7 @@ public class Game {
     private void randomizeLoot() {
         Random generate = new Random();
         // generate chest with 33% probability
-        if (generate.nextInt(3) == 0) {
+        if (generate.nextInt(6) == 0) {
             Loot loot = Loot.getByID(generate.nextInt(5) + 1);
             upgradePlayerAccordingToLoot(loot);
 
@@ -239,7 +304,7 @@ public class Game {
 
         if (!visitedLocations.contains(player.getLocation()))
         {
-            // TODO: Randomize enemy
+            if (randomizeEnemy()) return;
             randomizeLoot();
         }
         enterRoom();
@@ -252,7 +317,7 @@ public class Game {
 
         if (!visitedLocations.contains(player.getLocation()))
         {
-            // TODO: Randomize enemy
+            if (randomizeEnemy()) return;
             randomizeLoot();
         }
         enterRoom();

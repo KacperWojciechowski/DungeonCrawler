@@ -1,6 +1,10 @@
 package Client;
 
-import CommsFramework.*;
+import CommsFramework.Enums.Action;
+import CommsFramework.Enums.Key;
+import CommsFramework.Enums.Loot;
+import CommsFramework.Enums.Status;
+import CommsFramework.Interfaces.SenderCallback;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -26,8 +30,7 @@ public class Game {
 
         try {
             System.in.read();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        } catch (IOException ignored) {
         }
         System.out.println();
 
@@ -79,6 +82,7 @@ public class Game {
         counter++;
         System.out.println(counter + ". Exit game");
 
+        lastValidRequest = msg;
         Scanner scanner = new Scanner(System.in);
         int choice = 0;
         while(choice < 1 || choice > availableActions.size() + 1)
@@ -111,7 +115,7 @@ public class Game {
     {
         if (Status.getByID(msg.getInt(Key.status.toString())) == Status.Ok)
         {
-            System.out.println("You wake up in an empty, cold room, with no recognition how you got here, neither where" +
+            System.out.println("You wake up in an empty, cold room, with no recognition how you got here, neither where " +
                     "HERE is exactly. The only things you have is your trusty sword, and one magic spell you learned in" +
                     "your youth from a travelling wizard.");
             lastValidRequest = msg;
@@ -127,6 +131,7 @@ public class Game {
         System.out.println("[Debug]");
         System.out.println(msg);
         System.out.println();
+        lastValidRequest = msg;
     }
     public void process(JSONObject msg)
     {
@@ -139,7 +144,7 @@ public class Game {
         } else if (Action.undefined == Action.getFromJSON(msg)) {
             processUndefined();
         } else if (Action.findEnemy == Action.getFromJSON(msg)) {
-            // processFindEnemy(msg);
+            processFindEnemy(msg);
         } else if (Action.fight == Action.getFromJSON(msg)) {
             // processFight(msg);
         } else if (Action.checkStats == Action.getFromJSON(msg)) {
@@ -148,6 +153,43 @@ public class Game {
             processFindChest(msg);
         }
     }
+
+    private void processFindEnemy(JSONObject msg) {
+
+        String enemyName = msg.getString(Key.enemyName.name());
+        System.out.println("As you enter the room, you notice " + enemyName + " standing in the middle. Looks like he " +
+                "didn't notice you yet. What do you want to do ?");
+        System.out.println("1. Fight");
+        System.out.println("2. Flee to the previous room\n");
+        lastValidRequest = msg;
+        int choice = 0;
+        Scanner scanner = new Scanner(System.in);
+        while (choice < 1 || choice > 2)
+        {
+            System.out.println("Your choice: ");
+            choice = scanner.nextInt();
+        }
+        System.out.println();
+
+        switch(choice)
+        {
+            case 1 -> fight();
+            case 2 -> flee();
+        }
+    }
+
+    private void fight() {
+        // TODO: implement
+        System.out.println("Not yet implemented");
+    }
+
+    private void flee() {
+        JSONObject msg = new JSONObject();
+        msg.put(Key.action.name(), Action.flee.getID());
+        senderCallback.send(msg);
+        System.out.println("You decided to flee. As you nervously look behind you, gladly the creature is not following you");
+    }
+
     private void processFindChest(JSONObject msg) {
         System.out.print("In one of the corners of the room, you find a rusted chest. As you open it, you find ");
         if (Loot.damageBoost == Loot.getFromJSON(msg)) {
@@ -187,6 +229,7 @@ public class Game {
                 tryToRecoverFromWrongQuery();
             }
         } catch (JSONException e) {
+            e.printStackTrace();
             System.out.println("[Querry] Malformed querry");
             tryToRecoverFromWrongQuery();
         }

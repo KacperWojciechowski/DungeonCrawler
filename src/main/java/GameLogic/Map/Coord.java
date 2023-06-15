@@ -1,6 +1,4 @@
-package GameLogic;
-
-import java.util.List;
+package GameLogic.Map;
 
 public class Coord {
     public int x;

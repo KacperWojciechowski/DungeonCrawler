@@ -13,6 +13,7 @@ public class Player {
     int hp;
     int mana_limit;
     int mana;
+    int previousLocation;
     public Player() {
         hp_limit = 10;
         mana_limit = 10;
@@ -59,6 +60,7 @@ public class Player {
     }
     public void setLocation(int location)
     {
+        this.previousLocation = this.location;
         this.location = location;
     }
     public int getLocation()
@@ -108,5 +110,9 @@ public class Player {
 
     public int getSkillCost() {
         return skillCost;
+    }
+
+    public int getPreviousLocation() {
+        return previousLocation;
     }
 }

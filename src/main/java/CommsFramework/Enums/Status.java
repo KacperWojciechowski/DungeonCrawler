@@ -1,4 +1,4 @@
-package CommsFramework;
+package CommsFramework.Enums;
 
 public enum Status {
     Error(0), Ok(1);

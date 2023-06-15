@@ -1,4 +1,4 @@
-package CommsFramework;
+package CommsFramework.Interfaces;
 
 import org.json.JSONObject;
 

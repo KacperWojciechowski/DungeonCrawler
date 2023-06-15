@@ -1,4 +1,4 @@
-package CommsFramework;
+package CommsFramework.Enums;
 
 import org.json.JSONObject;
 
