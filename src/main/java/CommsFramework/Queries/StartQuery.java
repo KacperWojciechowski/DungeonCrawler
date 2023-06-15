@@ -3,11 +3,12 @@ package CommsFramework.Queries;
 import CommsFramework.Enums.Action;
 import CommsFramework.Enums.Key;
 import CommsFramework.Enums.Status;
+import lombok.Getter;
 import org.json.JSONObject;
 
 public class StartQuery {
     private final Action action = Action.start;
-    private Status status;
+    @Getter private Status status;
 
     public StartQuery(Status status)
     {
@@ -19,7 +20,7 @@ public class StartQuery {
     public JSONObject serialize()
     {
         JSONObject jsonObject = new JSONObject();
-        jsonObject.put(Key.action.name(), Action.start.getID());
+        jsonObject.put(Key.action.name(), action.getID());
         jsonObject.put(Key.status.name(), status.getID());
         return jsonObject;
     }
@@ -29,13 +30,5 @@ public class StartQuery {
         StartQuery query = new StartQuery();
         query.status = Status.getByID(msg.getInt(Key.status.name()));
         return query;
-    }
-
-    public Status getStatus() {
-        return status;
-    }
-
-    public void setStatus(Status status) {
-        this.status = status;
     }
 }

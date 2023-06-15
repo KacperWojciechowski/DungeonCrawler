@@ -1,24 +1,22 @@
 package GameLogic;
 
+import lombok.Getter;
+
 public class Player {
-    int damage = 10;
-    int skillDamage = 15;
-    int skillCost = 2;
-    int vitality = 10;
-    int intelligence = 10;
-    int hpPotionsCount = 0;
-    int manaPotionsCount = 0;
-    int location;
-    int hp_limit;
-    int hp;
-    int mana_limit;
-    int mana;
-    int previousLocation;
-    public Player() {
-        hp_limit = 10;
-        mana_limit = 10;
-        hp = hp_limit;
-        mana = mana_limit;}
+    @Getter int damage = 10;
+    @Getter int skillDamage = 15;
+    @Getter int skillCost = 2;
+    @Getter int vitality = 10;
+    @Getter int intelligence = 10;
+    @Getter int hpPotionsCount = 0;
+    @Getter int manaPotionsCount = 0;
+    @Getter int location;
+    @Getter int hp_limit = 10;
+    @Getter int hp = hp_limit;
+    @Getter int mana_limit = 10;
+    @Getter int mana = mana_limit;
+    @Getter int previousLocation;
+    public Player() {}
 
     public void upgradeDamage()
     {
@@ -62,57 +60,5 @@ public class Player {
     {
         this.previousLocation = this.location;
         this.location = location;
-    }
-    public int getLocation()
-    {
-        return location;
-    }
-
-    public int getDamage() {
-        return damage;
-    }
-
-    public int getHp() {
-        return hp;
-    }
-
-    public int getHp_limit() {
-        return hp_limit;
-    }
-
-    public int getHpPotionsCount() {
-        return hpPotionsCount;
-    }
-
-    public int getIntelligence() {
-        return intelligence;
-    }
-
-    public int getMana() {
-        return mana;
-    }
-
-    public int getMana_limit() {
-        return mana_limit;
-    }
-
-    public int getManaPotionsCount() {
-        return manaPotionsCount;
-    }
-
-    public int getVitality() {
-        return vitality;
-    }
-
-    public int getSkillDamage() {
-        return skillDamage;
-    }
-
-    public int getSkillCost() {
-        return skillCost;
-    }
-
-    public int getPreviousLocation() {
-        return previousLocation;
     }
 }

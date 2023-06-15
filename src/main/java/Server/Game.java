@@ -5,7 +5,7 @@ import CommsFramework.Enums.Key;
 import CommsFramework.Enums.Loot;
 import CommsFramework.Enums.Status;
 import CommsFramework.Interfaces.SenderCallback;
-import CommsFramework.Queries.StartQuery;
+import CommsFramework.Queries.*;
 import GameLogic.Enemies.*;
 import GameLogic.Map.MapGraph;
 import GameLogic.Player;
@@ -52,21 +52,17 @@ public class Game {
         System.out.println("[Querry] Trying to recover from wrong querry");
         if (lastValidRequest != null) {
             System.out.println("[Querry] Last valid querry available");
-            JSONObject response = new JSONObject();
-            response.put(Key.action.name(), Action.undefined.getID());
-            senderCallback.send(response);
-            lastRespose = response;
+            UndefinedQuery response = new UndefinedQuery();
+            senderCallback.send(response.serialize());
+            lastRespose = response.serialize();
             processRequest(lastValidRequest);
         } else {
             System.out.println("[Querry] Last valid querry not available");
-            JSONObject response = new JSONObject();
-            response.put(Key.action.name(), Action.undefined.getID());
-            senderCallback.send(response);
-            lastRespose = response;
-            JSONObject dummyStartMsg = new JSONObject();
-            dummyStartMsg.put(Key.action.name(), Action.start);
-            dummyStartMsg.put(Key.status.name(), initSucceeded ? Status.Ok : Status.Error);
-            processStart(dummyStartMsg);
+            UndefinedQuery response = new UndefinedQuery();
+            senderCallback.send(response.serialize());
+            lastRespose = response.serialize();
+            StartQuery dummyStartQuery = new StartQuery(initSucceeded ? Status.Ok : Status.Error);
+            processStart(dummyStartQuery);
         }
     }
     public void update(JSONObject msg)
@@ -84,80 +80,61 @@ public class Game {
         }
     }
 
-    private void processStart(JSONObject msg)
+    private void processStart(StartQuery query)
     {
         System.out.println("[Querry] Processing start");
         JSONObject startMsg = new JSONObject();
         StartQuery startQuery = new StartQuery(initSucceeded ? Status.Ok : Status.Error);
-        //startMsg.put(Key.action.toString(), Action.start.getID());
-        //if (initSucceeded) {
-        //    startMsg.put(Key.status.name(), Status.Ok.getID());
-        //} else {
-        //    startMsg.put(Key.status.name(), Status.Error.getID());
-        //    exitSem.release();
-        //}
         if (!initSucceeded)
         {
             exitSem.release(3);
         }
         senderCallback.send(startQuery.serialize());
         lastRespose = startMsg;
-        lastValidRequest = msg;
+        lastValidRequest = query.serialize();
         enterRoom();
     }
 
     private void enterRoom()
     {
-        JSONObject enterRoomMsg = new JSONObject();
-        enterRoomMsg.put(Key.action.name(), Action.enterRoom.getID());
+        EnterRoomQuery enterRoomQuery = new EnterRoomQuery();
+        checkAvailableNeighbouringRooms(enterRoomQuery);
 
-        checkAvailableNeighbouringRooms(enterRoomMsg);
+        enterRoomQuery.setHpPotionAvailable(player.getHpPotionsCount() > 0);
+        enterRoomQuery.setManaPotionAvailable(player.getManaPotionsCount() > 0);
+        enterRoomQuery.setVisited(visitedLocations.contains(player.getLocation()));
 
-        // TODO: implement potions
-        enterRoomMsg.put(Key.hpPotionAvailable.name(), false);
-        enterRoomMsg.put(Key.manaPotionAvailable.name(), false);
-        enterRoomMsg.put(Key.visited.name(), visitedLocations.contains(player.getLocation()));
-        senderCallback.send(enterRoomMsg);
-        lastRespose = enterRoomMsg;
+        senderCallback.send(enterRoomQuery.serialize());
+        lastRespose = enterRoomQuery.serialize();
         visitedLocations.add(player.getLocation());
     }
-    private void checkAvailableNeighbouringRooms(JSONObject msg) {
+    private void checkAvailableNeighbouringRooms(EnterRoomQuery query) {
         List<Integer> neighbouringRooms = map.getNeighboursOf(player.getLocation());
-        boolean northIsPresent = false;
-        boolean westIsPresent = false;
-        boolean eastIsPresent = false;
-        boolean southIsPresent = false;
 
         for (Integer neighbour : neighbouringRooms)
         {
-            if (neighbour == player.getLocation() - 1) westIsPresent = true;
-            if (neighbour == player.getLocation() + 1) eastIsPresent = true;
-            if (neighbour < player.getLocation() - 1) {northIsPresent = true; north = neighbour;}
-            if (neighbour > player.getLocation() + 1) {southIsPresent = true; south = neighbour;}
+            if (neighbour == player.getLocation() - 1) query.setWestIsPresent(true);
+            if (neighbour == player.getLocation() + 1) query.setEastIsPresent(true);
+            if (neighbour < player.getLocation() - 1) {query.setNorthIsPresent(true); north = neighbour;}
+            if (neighbour > player.getLocation() + 1) {query.setSouthIsPresent(true); south = neighbour;}
         }
-
-        msg.put(Key.pathNorth.name(), northIsPresent);
-        msg.put(Key.pathWest.name(), westIsPresent);
-        msg.put(Key.pathEast.name(), eastIsPresent);
-        msg.put(Key.pathSouth.name(), southIsPresent);
     }
 
     private void processDisconnect()
     {
         System.out.println("[Querry] Processing disconnect\n-------------------\n");
-        JSONObject msg = new JSONObject();
-        msg.put(Key.action.name(), Action.disconnect.getID());
-        msg.put(Key.status.name(), Status.Ok.getID());
-        senderCallback.send(msg);
-        lastRespose = msg;
+        DisconnectQuery disconnectQuery = new DisconnectQuery(Status.Ok);
+        senderCallback.send(disconnectQuery.serialize());
+        lastRespose = disconnectQuery.serialize();
         exitSem.release(3);
     }
     private void processRequest(JSONObject msg)
     {
         System.out.println("[Querry] Processing request");
 
+        lastValidRequest = msg;
         if (Action.start == Action.getFromJSON(msg)) {
-            processStart(msg);
+            processStart(StartQuery.deserialize(msg));
         } else if (Action.disconnect == Action.getFromJSON(msg)) {
             processDisconnect();
         } else if (Action.goNorth == Action.getFromJSON(msg)) {
@@ -184,20 +161,8 @@ public class Game {
 
     private void processCheckStats() {
         System.out.println("[Querry] Processing check stats");
-        JSONObject msg = new JSONObject();
-        msg.put(Key.action.name(), Action.checkStats.getID());
-        msg.put(Key.playerMana.name(), player.getMana());
-        msg.put(Key.playerHp.name(), player.getHp());
-        msg.put(Key.playerVitality.name(), player.getVitality());
-        msg.put(Key.playerDamage.name(), player.getDamage());
-        msg.put(Key.playerIntelligence.name(), player.getIntelligence());
-        msg.put(Key.playerSkillCost.name(), player.getSkillCost());
-        msg.put(Key.playerSkillDamage.name(), player.getSkillDamage());
-        msg.put(Key.playerManaPotionsCount.name(), player.getManaPotionsCount());
-        msg.put(Key.playerHpPotionsCount.name(), player.getHpPotionsCount());
-        msg.put(Key.playerManaLimit.name(), player.getMana_limit());
-        msg.put(Key.playerHpLimit.name(), player.getHp_limit());
-        senderCallback.send(msg);
+        CheckStatsQuery checkStatsQuery = new CheckStatsQuery(player);
+        senderCallback.send(checkStatsQuery.serialize());
         // allow player to select another choice from the previous action
         senderCallback.send(lastRespose);
     }
@@ -247,11 +212,9 @@ public class Game {
     }
 
     private void processFoundEnemy(Enemy localEnemy) {
-        JSONObject msg = new JSONObject();
-        msg.put(Key.action.name(), Action.findEnemy.getID());
-        msg.put(Key.enemyName.name(), localEnemy.getName());
-        msg.put(Key.enemyAlive.name(), true);
-        senderCallback.send(msg);
+        FoundEnemyQuery foundEnemyQuery = new FoundEnemyQuery(localEnemy.getName());
+        senderCallback.send(foundEnemyQuery.serialize());
+        lastRespose = foundEnemyQuery.serialize();
     }
 
     private Enemy getEnemyFoundInThisLocation() {
@@ -284,11 +247,8 @@ public class Game {
         if (generate.nextInt(6) == 0) {
             Loot loot = Loot.getByID(generate.nextInt(5) + 1);
             upgradePlayerAccordingToLoot(loot);
-
-            JSONObject msg = new JSONObject();
-            msg.put(Key.action.name(), Action.findChest.getID());
-            msg.put(Key.loot.name(), loot.getID());
-            senderCallback.send(msg);
+            FindChestQuery findChestQuery = new FindChestQuery(loot);
+            senderCallback.send(findChestQuery.serialize());
         }
     }
 

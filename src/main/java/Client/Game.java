@@ -5,7 +5,8 @@ import CommsFramework.Enums.Key;
 import CommsFramework.Enums.Loot;
 import CommsFramework.Enums.Status;
 import CommsFramework.Interfaces.SenderCallback;
-import CommsFramework.Queries.StartQuery;
+import CommsFramework.Queries.*;
+import GameLogic.Player;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -37,56 +38,20 @@ public class Game {
 
         StartQuery startQuery = new StartQuery(Status.Ok);
 
-        //JSONObject jsonObject = new JSONObject();
-        //jsonObject.put(Key.action.name(), Action.start.getID());
-        //senderCallback.send(jsonObject);
         senderCallback.send(startQuery.serialize());
     }
 
-    private void processEnterRoom(JSONObject msg)
+    private void processEnterRoom(EnterRoomQuery query)
     {
-        if (msg.getBoolean(Key.visited.name()))
+        if (query.isVisited())
             System.out.println("Looks like you already visited this room.");
         System.out.println("As you turn around, all you can see are pathways," +
                 " leading off into different directions. What do you choose to do ?");
         List<Action> availableActions = new ArrayList<>();
         int counter = 1;
-        if (msg.getBoolean(Key.pathNorth.toString())) {
-            System.out.println(counter + ". Go North");
-            availableActions.add(Action.goNorth);
-            counter++;
-        }
-        if (msg.getBoolean(Key.pathWest.toString())) {
-            System.out.println(counter + ". Go West");
-            availableActions.add(Action.goWest);
-            counter++;
-        }
-        if (msg.getBoolean(Key.pathEast.toString())) {
-            System.out.println(counter + ". Go East");
-            availableActions.add(Action.goEast);
-            counter++;
-        }
-        if (msg.getBoolean(Key.pathSouth.toString())) {
-            System.out.println(counter + ". Go South");
-            availableActions.add(Action.goSouth);
-            counter++;
-        }
-        if (msg.getBoolean(Key.hpPotionAvailable.toString())) {
-            System.out.println(counter + ". Drink HP potion");
-            availableActions.add(Action.drinkHpPotion);
-            counter++;
-        }
-        if (msg.getBoolean(Key.manaPotionAvailable.toString())) {
-            System.out.println(counter + ". Drink Mana potion");
-            availableActions.add(Action.drinkManaPotion);
-            counter++;
-        }
-        System.out.println(counter + ". Check stats");
-        availableActions.add(Action.checkStats);
-        counter++;
-        System.out.println(counter + ". Exit game");
+        printAvailableChoices(query, availableActions);
 
-        lastValidRequest = msg;
+        lastValidRequest = query.serialize();
         Scanner scanner = new Scanner(System.in);
         int choice = 0;
         while(choice < 1 || choice > availableActions.size() + 1)
@@ -98,16 +63,84 @@ public class Game {
 
         if (choice != availableActions.size() + 1)
         {
-            JSONObject response = new JSONObject();
-            response.put(Key.action.toString(), availableActions.get(choice-1).getID());
-            senderCallback.send(response);
+            doSelectedAction(availableActions.get(choice-1));
         }
         else {
-            JSONObject response = new JSONObject();
-            response.put(Key.action.name(), Action.disconnect.getID());
-            senderCallback.send(response);
+            DisconnectQuery disconnectQuery = new DisconnectQuery(Status.Ok);
+            senderCallback.send(disconnectQuery.serialize());
             exitSem.release(3);
         }
+    }
+
+    private void doSelectedAction(Action action) {
+        switch (action)
+        {
+            case goNorth -> {
+                GoNorthQuery goNorthQuery = new GoNorthQuery();
+                senderCallback.send(goNorthQuery.serialize());
+            }
+            case goWest -> {
+                GoWestQuery goWestQuery = new GoWestQuery();
+                senderCallback.send(goWestQuery.serialize());
+            }
+            case goEast -> {
+                GoEastQuery goEastQuery = new GoEastQuery();
+                senderCallback.send(goEastQuery.serialize());
+            }
+            case goSouth -> {
+                GoSouthQuery goSouthQuery = new GoSouthQuery();
+                senderCallback.send(goSouthQuery.serialize());
+            }
+            case drinkHpPotion -> {
+                // TODO: implement
+            }
+            case drinkManaPotion -> {
+                // TODO: implement
+            }
+            case checkStats -> {
+                Player dummyPlayer = new Player();
+                CheckStatsQuery checkStatsQuery = new CheckStatsQuery(dummyPlayer);
+                senderCallback.send(checkStatsQuery.serialize());
+            }
+        }
+    }
+
+    private void printAvailableChoices(EnterRoomQuery query, List<Action> availableActions) {
+        int counter = 1;
+        if (query.isNorthIsPresent()) {
+            System.out.println(counter + ". Go North");
+            availableActions.add(Action.goNorth);
+            counter++;
+        }
+        if (query.isWestIsPresent()) {
+            System.out.println(counter + ". Go West");
+            availableActions.add(Action.goWest);
+            counter++;
+        }
+        if (query.isEastIsPresent()) {
+            System.out.println(counter + ". Go East");
+            availableActions.add(Action.goEast);
+            counter++;
+        }
+        if (query.isSouthIsPresent()) {
+            System.out.println(counter + ". Go South");
+            availableActions.add(Action.goSouth);
+            counter++;
+        }
+        if (query.isHpPotionAvailable()) {
+            System.out.println(counter + ". Drink HP potion");
+            availableActions.add(Action.drinkHpPotion);
+            counter++;
+        }
+        if (query.isManaPotionAvailable()) {
+            System.out.println(counter + ". Drink Mana potion");
+            availableActions.add(Action.drinkManaPotion);
+            counter++;
+        }
+        System.out.println(counter + ". Check stats");
+        availableActions.add(Action.checkStats);
+        counter++;
+        System.out.println(counter + ". Exit game");
     }
 
     void processUndefined()
@@ -115,14 +148,14 @@ public class Game {
         System.out.println("[System] Querry recognition failure by the server. Last action will be re-done.");
     }
 
-    void processStart(JSONObject msg)
+    void processStart(StartQuery query)
     {
-        if (Status.getByID(msg.getInt(Key.status.toString())) == Status.Ok)
+        if (query.getStatus() == Status.Ok)
         {
             System.out.println("You wake up in an empty, cold room, with no recognition how you got here, neither where " +
                     "HERE is exactly. The only things you have is your trusty sword, and one magic spell you learned in" +
                     "your youth from a travelling wizard.");
-            lastValidRequest = msg;
+            lastValidRequest = query.serialize();
         }
         else
         {
@@ -142,30 +175,30 @@ public class Game {
         if (Action.debug == Action.getFromJSON(msg)) {
             processDebug(msg);
         } else if (Action.start == Action.getFromJSON(msg)) {
-            processStart(msg);
+            processStart(StartQuery.deserialize(msg));
         } else if (Action.enterRoom == Action.getFromJSON(msg)) {
-            processEnterRoom(msg);
+            processEnterRoom(EnterRoomQuery.deserialize(msg));
         } else if (Action.undefined == Action.getFromJSON(msg)) {
             processUndefined();
         } else if (Action.findEnemy == Action.getFromJSON(msg)) {
-            processFindEnemy(msg);
+            processFindEnemy(FoundEnemyQuery.deserialize(msg));
         } else if (Action.fight == Action.getFromJSON(msg)) {
             // processFight(msg);
         } else if (Action.checkStats == Action.getFromJSON(msg)) {
-            processCheckStats(msg);
+            processCheckStats(CheckStatsQuery.deserialize(msg));
         } else if (Action.findChest == Action.getFromJSON(msg)) {
-            processFindChest(msg);
+            processFindChest(FindChestQuery.deserialize(msg));
         }
     }
 
-    private void processFindEnemy(JSONObject msg) {
+    private void processFindEnemy(FoundEnemyQuery query) {
 
-        String enemyName = msg.getString(Key.enemyName.name());
+        String enemyName = query.getEnemyName();
         System.out.println("As you enter the room, you notice " + enemyName + " standing in the middle. Looks like he " +
                 "didn't notice you yet. What do you want to do ?");
         System.out.println("1. Fight");
         System.out.println("2. Flee to the previous room\n");
-        lastValidRequest = msg;
+        lastValidRequest = query.serialize();
         int choice = 0;
         Scanner scanner = new Scanner(System.in);
         while (choice < 1 || choice > 2)
@@ -188,40 +221,39 @@ public class Game {
     }
 
     private void flee() {
-        JSONObject msg = new JSONObject();
-        msg.put(Key.action.name(), Action.flee.getID());
-        senderCallback.send(msg);
+        FleeQuery fleeQuery = new FleeQuery();
+        senderCallback.send(fleeQuery.serialize());
         System.out.println("You decided to flee. As you nervously look behind you, gladly the creature is not following you");
     }
 
-    private void processFindChest(JSONObject msg) {
+    private void processFindChest(FindChestQuery query) {
         System.out.print("In one of the corners of the room, you find a rusted chest. As you open it, you find ");
-        if (Loot.damageBoost == Loot.getFromJSON(msg)) {
+        if (Loot.damageBoost == query.getLoot()) {
             System.out.println("a shiny sword, in somehow better shape than your current one. Your damage increases.");
-        } else if (Loot.vitalityBoost == Loot.getFromJSON(msg)) {
+        } else if (Loot.vitalityBoost == query.getLoot()) {
             System.out.println("an old armor. Despite some scratches and hints of rust, it's in somehow better shape " +
                     "than your current one. Your vitality increases");
-        } else if (Loot.intelligenceBoost == Loot.getFromJSON(msg)) {
+        } else if (Loot.intelligenceBoost == query.getLoot()) {
             System.out.println("a dusty old scroll. As you read its content, you gain a better understanding of the magic" +
                     "you're using. Your intelligence increases.");
-        } else if (Loot.hpPotion == Loot.getFromJSON(msg)) {
+        } else if (Loot.hpPotion == query.getLoot()) {
             System.out.println("an hp potion. You pack it in your bag to use it later.");
-        } else if (Loot.manaPotion == Loot.getFromJSON(msg)) {
+        } else if (Loot.manaPotion == query.getLoot()) {
             System.out.println("a mana potion. You think this might come in handy, as you put it in your bag.");
         }
     }
-    private void processCheckStats(JSONObject msg) {
+    private void processCheckStats(CheckStatsQuery query) {
         System.out.println("Here are your current stats:");
-        System.out.println("HP: " + msg.getInt(Key.playerHp.name()) + " / " + msg.getInt(Key.playerHpLimit.name()));
-        System.out.println("Mana: " + msg.getInt(Key.playerMana.name()) + " / " + msg.getInt(Key.playerManaLimit.name()));
-        System.out.println("Damage: " + msg.getInt(Key.playerDamage.name()));
+        System.out.println("HP: " + query.getHp() + " / " + query.getHpLimit());
+        System.out.println("Mana: " + query.getMana() + " / " + query.getManaLimit());
+        System.out.println("Damage: " + query.getDamage());
         System.out.println("Skill:");
-        System.out.println("-Damage: " + msg.getInt(Key.playerSkillDamage.name()));
-        System.out.println("-Cost: " + msg.getInt(Key.playerSkillCost.name()) + " mana");
-        System.out.println("Vitality: " + msg.getInt(Key.playerVitality.name()));
-        System.out.println("Intelligence: " + msg.getInt(Key.playerIntelligence.name()));
-        System.out.println("Hp potions in bag: " + msg.getInt(Key.playerHpPotionsCount.name()));
-        System.out.println("Mana potions in bag: " + msg.getInt(Key.playerManaPotionsCount.name()));
+        System.out.println("-Damage: " + query.getSkillDamage());
+        System.out.println("-Cost: " + query.getSkillCost() + " mana");
+        System.out.println("Vitality: " + query.getVitality());
+        System.out.println("Intelligence: " + query.getIntelligence());
+        System.out.println("Hp potions in bag: " + query.getHpPotionsCount());
+        System.out.println("Mana potions in bag: " + query.getManaPotionsCount());
         System.out.println("\n");
     }
 
@@ -243,15 +275,13 @@ public class Game {
         System.out.println("[Querry] Trying to recover from wrong querry");
         if (lastValidRequest != null) {
             System.out.println("[Querry] Last valid querry available");
-            JSONObject response = new JSONObject();
-            response.put(Key.action.name(), Action.undefined.getID());
-            senderCallback.send(response);
+            UndefinedQuery undefinedQuery = new UndefinedQuery();
+            senderCallback.send(undefinedQuery.serialize());
             process(lastValidRequest);
         } else {
             System.out.println("[Querry] Fatal error occured with no recovery option. Please restart the game");
-            JSONObject response = new JSONObject();
-            response.put(Key.action.name(), Action.disconnect.getID());
-            senderCallback.send(response);
+            DisconnectQuery disconnectQuery = new DisconnectQuery(Status.Ok);
+            senderCallback.send(disconnectQuery.serialize());
             exitSem.release(3);
         }
     }

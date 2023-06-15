@@ -28,9 +28,4 @@ public enum Loot {
         }
         return loot;
     }
-
-    public static Loot getFromJSON(JSONObject msg)
-    {
-        return Loot.getByID(msg.getInt(Key.loot.name()));
-    }
 }
