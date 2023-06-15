@@ -5,6 +5,7 @@ import CommsFramework.Enums.Key;
 import CommsFramework.Enums.Loot;
 import CommsFramework.Enums.Status;
 import CommsFramework.Interfaces.SenderCallback;
+import CommsFramework.Queries.StartQuery;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -34,9 +35,12 @@ public class Game {
         }
         System.out.println();
 
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put(Key.action.name(), Action.start.getID());
-        senderCallback.send(jsonObject);
+        StartQuery startQuery = new StartQuery(Status.Ok);
+
+        //JSONObject jsonObject = new JSONObject();
+        //jsonObject.put(Key.action.name(), Action.start.getID());
+        //senderCallback.send(jsonObject);
+        senderCallback.send(startQuery.serialize());
     }
 
     private void processEnterRoom(JSONObject msg)

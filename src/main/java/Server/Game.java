@@ -5,6 +5,7 @@ import CommsFramework.Enums.Key;
 import CommsFramework.Enums.Loot;
 import CommsFramework.Enums.Status;
 import CommsFramework.Interfaces.SenderCallback;
+import CommsFramework.Queries.StartQuery;
 import GameLogic.Enemies.*;
 import GameLogic.Map.MapGraph;
 import GameLogic.Player;
@@ -87,14 +88,19 @@ public class Game {
     {
         System.out.println("[Querry] Processing start");
         JSONObject startMsg = new JSONObject();
-        startMsg.put(Key.action.toString(), Action.start.getID());
-        if (initSucceeded) {
-            startMsg.put(Key.status.name(), Status.Ok.getID());
-        } else {
-            startMsg.put(Key.status.name(), Status.Error.getID());
-            exitSem.release();
+        StartQuery startQuery = new StartQuery(initSucceeded ? Status.Ok : Status.Error);
+        //startMsg.put(Key.action.toString(), Action.start.getID());
+        //if (initSucceeded) {
+        //    startMsg.put(Key.status.name(), Status.Ok.getID());
+        //} else {
+        //    startMsg.put(Key.status.name(), Status.Error.getID());
+        //    exitSem.release();
+        //}
+        if (!initSucceeded)
+        {
+            exitSem.release(3);
         }
-        senderCallback.send(startMsg);
+        senderCallback.send(startQuery.serialize());
         lastRespose = startMsg;
         lastValidRequest = msg;
         enterRoom();
