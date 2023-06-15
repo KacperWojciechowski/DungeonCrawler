@@ -77,7 +77,9 @@ public class Main {
             receive();
 
             writerSem.release();
+            readyToSendSem.release();
             receiverSem.release();
+            readyToReceiveSem.release();
             writer.join();
             receiver.join();
         } catch (IOException e) {

@@ -37,9 +37,9 @@ public class Receiver  extends Thread {
                     recvQueueSem.release();
                     readyToReceiveSem.release();
                 }
-                recvQueueSem.release();
             } catch (IOException | InterruptedException e) {
                 exitSem.release(3);
+                recvQueueSem.release();
                 readyToReceiveSem.release();
             }
         }

@@ -70,6 +70,7 @@ public class Main {
                     PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
                     BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))
             ) {
+                System.out.println("[System] Player connected");
                 resetGlobals();
 
                 Writer writer = new Writer(out, sendQueue, writerSem, sendQueueSem, readyToSendSem);
