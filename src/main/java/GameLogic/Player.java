@@ -30,6 +30,15 @@ public class Player {
         hp += 2;
     }
 
+    public int useSkill() {
+        if (mana >= skillCost)
+        {
+            mana -= skillCost;
+            return skillDamage;
+        } else {
+            return 0;
+        }
+    }
     public void upgradeIntelligence()
     {
         intelligence += 1;
@@ -60,5 +69,11 @@ public class Player {
     {
         this.previousLocation = this.location;
         this.location = location;
+    }
+
+    public boolean takeDamage(int damage)
+    {
+        hp -= damage;
+        return hp <= 0;
     }
 }

@@ -153,6 +153,43 @@ public class Game {
             processDrinkHpPotion();
         } else if (Action.drinkManaPotion == Action.getFromJSON(msg)) {
             processDrinkManaPotion();
+        } else if (Action.fight == Action.getFromJSON(msg)) {
+            processFight(FightQuery.deserialize(msg));
+        }
+    }
+
+    private void processFight(FightQuery query) {
+        enemy = getEnemyFoundInThisLocation();
+        FightQuery response = new FightQuery();
+        boolean enemyDied = false;
+        boolean playerDied = false;
+        if (query.isPlayerAttacked()) {
+            enemyDied = enemy.takeDamage(player.getDamage());
+            if (!enemyDied) {
+                response.setEnemyAttacked(enemy.getDamage());
+                playerDied = player.takeDamage(enemy.getDamage());
+            }
+        } else if (query.isPlayerUsedSkill()) {
+            enemyDied = enemy.takeDamage(player.useSkill());
+            if (!enemyDied) {
+                response.setEnemyAttacked(enemy.getDamage());
+                playerDied = player.takeDamage(enemy.getDamage());
+            }
+        }
+
+        response.setEnemyAlive(!enemyDied);
+        response.setPlayerUsedSkill(query.isPlayerUsedSkill());
+        response.setPlayerAttacked(query.isPlayerAttacked());
+        response.setHpPotionAvailable(player.getHpPotionsCount() > 0);
+        response.setManaPotionAvailable(player.getManaPotionsCount() > 0);
+        response.setPlayerSkillAvailable(player.getMana() >= player.getSkillCost());
+        response.setPlayerAlive(!playerDied);
+        senderCallback.send(response.serialize());
+        lastRespose = response.serialize();
+
+        if (enemyDied) {
+            randomizeLoot();
+            enterRoom();
         }
     }
 

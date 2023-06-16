@@ -11,6 +11,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -49,7 +50,7 @@ public class Game {
                 " leading off into different directions. What do you choose to do ?");
         List<Action> availableActions = new ArrayList<>();
         int counter = 1;
-        printAvailableChoices(query, availableActions);
+        printAvailableEnterRoomChoices(query, availableActions);
 
         lastValidRequest = query.serialize();
         Scanner scanner = new Scanner(System.in);
@@ -63,7 +64,7 @@ public class Game {
 
         if (choice != availableActions.size() + 1)
         {
-            doSelectedAction(availableActions.get(choice-1));
+            doSelectedEnterRoomAction(availableActions.get(choice-1));
         }
         else {
             DisconnectQuery disconnectQuery = new DisconnectQuery(Status.Ok);
@@ -72,7 +73,7 @@ public class Game {
         }
     }
 
-    private void doSelectedAction(Action action) {
+    private void doSelectedEnterRoomAction(Action action) {
         switch (action)
         {
             case goNorth -> {
@@ -107,7 +108,7 @@ public class Game {
         }
     }
 
-    private void printAvailableChoices(EnterRoomQuery query, List<Action> availableActions) {
+    private void printAvailableEnterRoomChoices(EnterRoomQuery query, List<Action> availableActions) {
         int counter = 1;
         if (query.isNorthIsPresent()) {
             System.out.println(counter + ". Go North");
@@ -185,12 +186,127 @@ public class Game {
         } else if (Action.findEnemy == Action.getFromJSON(msg)) {
             processFindEnemy(FoundEnemyQuery.deserialize(msg));
         } else if (Action.fight == Action.getFromJSON(msg)) {
-            // processFight(msg);
+            processFight(FightQuery.deserialize(msg));
         } else if (Action.checkStats == Action.getFromJSON(msg)) {
             processCheckStats(CheckStatsQuery.deserialize(msg));
         } else if (Action.findChest == Action.getFromJSON(msg)) {
             processFindChest(FindChestQuery.deserialize(msg));
         }
+    }
+
+    private void processFight(FightQuery query) {
+        if (query.isPlayerAttacked())
+        {
+            System.out.println("You swing at the enemy, dealing significant damage to it.");
+        } else if (query.isPlayerUsedSkill())
+        {
+            System.out.println("As the fireball hits enemy, for a brief moment the flames surround it, scorching its skin.");
+        }
+        if (!query.isEnemyAlive())
+        {
+            System.out.println("The enemy sways at his feet after the last blow, as he finally falls and dies on the ground.");
+        } else {
+            if (query.getEnemyAttacked() > 0)
+            {
+                System.out.println("Enemy attacks you for " + query.getEnemyAttacked() + " points of damage.");
+            }
+            if (!query.isPlayerAlive()) {
+                System.out.println("As you receive this last strike, you realize this is the end of your travels. You " +
+                        "fall down on the floor, as everything around you becomes dark. This place is your grave.\n");
+
+                System.out.println("[System] Thank you for playing\n");
+                DisconnectQuery disconnectQuery = new DisconnectQuery(Status.Ok);
+                senderCallback.send(disconnectQuery.serialize());
+                exitSem.release(3);
+                return;
+            }
+            System.out.println("What shall you do ?");
+
+            List<Action> availableActions = new ArrayList<>();
+            int counter = 1;
+            printAvailableFightChoices(query, availableActions);
+
+            lastValidRequest = query.serialize();
+            Scanner scanner = new Scanner(System.in);
+            int choice = 0;
+            while(choice < 1 || choice > availableActions.size() + 1)
+            {
+                System.out.print("Your choice: ");
+                choice = scanner.nextInt();
+            }
+            System.out.println();
+
+            if (choice - 1 < availableActions.size())
+            {
+                doFightAction(availableActions.get(choice-1));
+            } else {
+                DisconnectQuery disconnectQuery = new DisconnectQuery(Status.Ok);
+                senderCallback.send(disconnectQuery.serialize());
+                exitSem.release(3);
+            }
+        }
+    }
+
+    private void doFightAction(Action action) {
+        FightQuery fightQuery = new FightQuery();
+        switch(action)
+        {
+            case attack -> {
+                fightQuery.setPlayerAttacked(true);
+                senderCallback.send(fightQuery.serialize());
+            }
+            case useSkill -> {
+                fightQuery.setPlayerUsedSkill(true);
+                senderCallback.send(fightQuery.serialize());
+            }
+            case drinkHpPotion -> {
+                UseHpPotionQuery useHpPotionQuery = new UseHpPotionQuery();
+                senderCallback.send(useHpPotionQuery.serialize());
+            }
+            case drinkManaPotion -> {
+                UseManaPotionQuery useManaPotionQuery = new UseManaPotionQuery();
+                senderCallback.send(useManaPotionQuery.serialize());
+            }
+            case checkStats -> {
+                Player dummyPlayer = new Player();
+                CheckStatsQuery checkStatsQuery = new CheckStatsQuery(dummyPlayer);
+                senderCallback.send(checkStatsQuery.serialize());
+            }
+        }
+    }
+
+    private void printAvailableFightChoices(FightQuery query, List<Action> availableActions) {
+        int counter = 1;
+        System.out.println(counter + ". Attack");
+        availableActions.add(Action.attack);
+        counter++;
+
+        if (query.isPlayerSkillAvailable())
+        {
+            System.out.println(counter + ". Use fireball");
+            availableActions.add(Action.useSkill);
+            counter++;
+        }
+
+        if (query.isHpPotionAvailable())
+        {
+            System.out.println(counter + ". Use HP potion");
+            availableActions.add(Action.drinkHpPotion);
+            counter++;
+        }
+
+        if (query.isManaPotionAvailable())
+        {
+            System.out.println(counter + ". Use Mana potion");
+            availableActions.add(Action.drinkManaPotion);
+            counter++;
+        }
+
+        System.out.println(counter + ". Check stats");
+        availableActions.add(Action.checkStats);
+        counter++;
+
+        System.out.println(counter + ". Exit the game");
     }
 
     private void processFindEnemy(FoundEnemyQuery query) {
@@ -212,14 +328,14 @@ public class Game {
 
         switch(choice)
         {
-            case 1 -> fight();
+            case 1 -> initializeFight();
             case 2 -> flee();
         }
     }
 
-    private void fight() {
-        // TODO: implement
-        System.out.println("Not yet implemented");
+    private void initializeFight() {
+        FightQuery fightQuery = new FightQuery();
+        senderCallback.send(fightQuery.serialize());
     }
 
     private void flee() {
