@@ -92,10 +92,12 @@ public class Game {
                 senderCallback.send(goSouthQuery.serialize());
             }
             case drinkHpPotion -> {
-                // TODO: implement
+                UseHpPotionQuery useHpPotionQuery = new UseHpPotionQuery();
+                senderCallback.send(useHpPotionQuery.serialize());
             }
             case drinkManaPotion -> {
-                // TODO: implement
+                UseManaPotionQuery useManaPotionQuery = new UseManaPotionQuery();
+                senderCallback.send(useManaPotionQuery.serialize());
             }
             case checkStats -> {
                 Player dummyPlayer = new Player();

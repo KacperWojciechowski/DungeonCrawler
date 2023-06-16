@@ -149,7 +149,21 @@ public class Game {
             processCheckStats();
         } else if (Action.flee == Action.getFromJSON(msg)) {
             processFlee();
+        } else if (Action.drinkHpPotion == Action.getFromJSON(msg)) {
+            processDrinkHpPotion();
+        } else if (Action.drinkManaPotion == Action.getFromJSON(msg)) {
+            processDrinkManaPotion();
         }
+    }
+
+    private void processDrinkManaPotion() {
+        player.useManaPotion();
+        senderCallback.send(lastRespose);
+    }
+
+    private void processDrinkHpPotion() {
+        player.useHpPotion();
+        senderCallback.send(lastRespose);
     }
 
     private void processFlee() {
@@ -244,7 +258,7 @@ public class Game {
     private void randomizeLoot() {
         Random generate = new Random();
         // generate chest with 33% probability
-        if (generate.nextInt(6) == 0) {
+        if (generate.nextInt(4) == 0) {
             Loot loot = Loot.getByID(generate.nextInt(5) + 1);
             upgradePlayerAccordingToLoot(loot);
             FindChestQuery findChestQuery = new FindChestQuery(loot);
